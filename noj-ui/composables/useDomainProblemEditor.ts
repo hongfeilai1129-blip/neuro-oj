@@ -1,7 +1,7 @@
 import type { ProblemDraftView, PublishPreflightReport, PublishVersionResult } from './useProblemVersions';
-import type { DomainEditorContent } from '~/utils/domain-problem-editor';
-import { domainProblemApiPath } from '~/utils/domain-problems';
-import type { DomainProblemReference } from '~/utils/domain-problems';
+import type { DomainEditorContent } from '~/utils/domain/problem/domain-problem-editor';
+import { domainProblemApiPath } from '~/utils/domain/problem/domain-problems';
+import type { DomainProblemReference } from '~/utils/domain/problem/domain-problems';
 /** 编辑本域源题，不通过共享引用写来源域。 */
 export function useDomainProblemEditor() {
   const { api } = useApi();
