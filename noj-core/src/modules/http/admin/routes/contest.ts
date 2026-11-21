@@ -16,40 +16,40 @@ import type { AuthEnv } from "../../../access/identity/middleware/auth.ts";
 import { parseJsonBody } from "../../../../shared/http/request.ts";
 import { BadRequestError } from "../../../../shared/base/errors.ts";
 import {
-  buildPaginationMeta,
-  parsePagination,
+    buildPaginationMeta,
+    parsePagination,
 } from "../../../../shared/http/pagination.ts";
 import {
-  addParticipants,
-  createContest,
-  deleteContest,
-  getContest,
-  getContestProblems,
-  listContests,
-  listParticipants,
-  removeParticipant,
-  updateContest,
+    addParticipants,
+    createContest,
+    deleteContest,
+    getContest,
+    getContestProblems,
+    listContests,
+    listParticipants,
+    removeParticipant,
+    updateContest,
 } from "../../../contests/services/contests.ts";
 import { resolveDefaultContestAccess } from "../../../contests/services/default-access.ts";
 import type {
-  CreateContestInput,
-  KaggleRankingRow,
-  UpdateContestInput,
+    CreateContestInput,
+    KaggleRankingRow,
+    UpdateContestInput,
 } from "../../../contests/types/contests.ts";
 import { isValidContestType } from "../../../contests/types/contests.ts";
 import { listSubmissions } from "../../../evaluations/services/submissions/submissions-crud.ts";
 import { scoreFromDb } from "../../../evaluations/types/index.ts";
 import { resolveUserId } from "../../../access/identity/services/users/users-id.ts";
 import {
-  getContestRankingSnapshotByVersion,
-  getContestSettlementStatus,
-  getLatestContestRankingSnapshot,
-  listContestRankingSnapshots,
-  publishContestRankingSnapshot,
+    getContestRankingSnapshotByVersion,
+    getContestSettlementStatus,
+    getLatestContestRankingSnapshot,
+    listContestRankingSnapshots,
+    publishContestRankingSnapshot,
 } from "../../../contests/services/contest-ranking.ts";
 import {
-  findSimilarSubmissions,
-  MAX_SIMILAR_PAIR_LIMIT,
+    findSimilarSubmissions,
+    MAX_SIMILAR_PAIR_LIMIT,
 } from "../../../contests/services/contest-similarity.ts";
 import { resolveProblemIdOrThrow } from "../../../problems/services/problem-resolve.ts";
 import { assertPermission } from "../../../access/identity/services/security/permissions.ts";
@@ -61,19 +61,19 @@ import { adminVersionMiddleware } from "../middleware/admin-version.ts";
 const auditBodies = new WeakMap<object, unknown>();
 
 function setAuditBody(c: object, body: unknown): void {
-  auditBodies.set(c, body);
+    auditBodies.set(c, body);
 }
 
 function getAuditBody<T>(c: object): T | undefined {
-  return auditBodies.get(c) as T | undefined;
+    return auditBodies.get(c) as T | undefined;
 }
 
 /** 将 AuthEnv handler 适配为 withAudit 接受的 Context handler。 */
 function auditRoute(
-  meta: AuditMeta,
-  handler: (c: Context<AuthEnv>) => Promise<Response>,
+    meta: AuditMeta,
+    handler: (c: Context<AuthEnv>) => Promise<Response>,
 ) {
-  return withAudit(meta)(handler as (c: Context) => Promise<Response>);
+    return withAudit(meta)(handler as (c: Context) => Promise<Response>);
 }
 
 /**
@@ -93,25 +93,25 @@ const router = new Hono<AuthEnv>();
  * 权限：管理员。query：page、perPage、type。响应：{ data, pagination }。
  */
 router.get("/contests", async (c) => {
-  const { page, perPage } = parsePagination(c);
-  const typeQuery = c.req.query("type");
-  if (typeQuery && !isValidContestType(typeQuery)) {
-    throw new BadRequestError("竞赛类型不合法");
-  }
-  const type = typeQuery && isValidContestType(typeQuery)
-    ? typeQuery
-    : undefined;
-  const result = await listContests({
-    page,
-    perPage,
-    type,
-    showAll: true,
-    defaultDomainOnly: true,
-  });
-  return c.json({
-    data: result.data,
-    pagination: buildPaginationMeta(page, perPage, result.total),
-  });
+    const { page, perPage } = parsePagination(c);
+    const typeQuery = c.req.query("type");
+    if (typeQuery && !isValidContestType(typeQuery)) {
+        throw new BadRequestError("竞赛类型不合法");
+    }
+    const type = typeQuery && isValidContestType(typeQuery)
+        ? typeQuery
+        : undefined;
+    const result = await listContests({
+        page,
+        perPage,
+        type,
+        showAll: true,
+        defaultDomainOnly: true,
+    });
+    return c.json({
+        data: result.data,
+        pagination: buildPaginationMeta(page, perPage, result.total),
+    });
 });
 
 /**
@@ -119,15 +119,15 @@ router.get("/contests", async (c) => {
  * 权限：管理员。path：id。响应：{ data: { ...contest, problems } }。
  */
 router.get("/contests/:id", async (c) => {
-  const contestId = await resolveDefaultContestAccess(
-    c.req.param("id") as string,
-    c.var.userId,
-  );
-  const [contest, problems] = await Promise.all([
-    getContest(contestId),
-    getContestProblems(contestId),
-  ]);
-  return c.json({ data: { ...contest, problems } });
+    const contestId = await resolveDefaultContestAccess(
+        c.req.param("id") as string,
+        c.var.userId,
+    );
+    const [contest, problems] = await Promise.all([
+        getContest(contestId),
+        getContestProblems(contestId),
+    ]);
+    return c.json({ data: { ...contest, problems } });
 });
 
 /**
@@ -135,40 +135,40 @@ router.get("/contests/:id", async (c) => {
  * 权限：管理员。body：CreateContestInput。响应：201 { data }。
  */
 router.post(
-  "/contests",
-  auditRoute(
-    {
-      action: "contest.create",
-      target: (c) => {
-        const body = getAuditBody<{ result?: { id?: string } }>(c);
-        return body?.result?.id
-          ? { type: "contest", id: body.result.id }
-          : undefined;
-      },
-      buildDetail: (c) => {
-        const body = getAuditBody<{
-          input?: CreateContestInput;
-          result?: {
-            id?: string;
-            title?: string;
-            type?: string;
-          };
-        }>(c);
-        return {
-          action: "contest.create",
-          contest_id: body?.result?.id ?? "",
-          title: body?.input?.title ?? body?.result?.title ?? "",
-          type: body?.input?.type ?? body?.result?.type ?? "",
-        };
-      },
-    },
-    async (c) => {
-      const body = await parseJsonBody<CreateContestInput>(c);
-      const data = await createContest(body, c.get("userId"), true);
-      setAuditBody(c, { input: body, result: data });
-      return c.json({ data }, 201);
-    },
-  ),
+    "/contests",
+    auditRoute(
+        {
+            action: "contest.create",
+            target: (c) => {
+                const body = getAuditBody<{ result?: { id?: string } }>(c);
+                return body?.result?.id
+                    ? { type: "contest", id: body.result.id }
+                    : undefined;
+            },
+            buildDetail: (c) => {
+                const body = getAuditBody<{
+                    input?: CreateContestInput;
+                    result?: {
+                        id?: string;
+                        title?: string;
+                        type?: string;
+                    };
+                }>(c);
+                return {
+                    action: "contest.create",
+                    contest_id: body?.result?.id ?? "",
+                    title: body?.input?.title ?? body?.result?.title ?? "",
+                    type: body?.input?.type ?? body?.result?.type ?? "",
+                };
+            },
+        },
+        async (c) => {
+            const body = await parseJsonBody<CreateContestInput>(c);
+            const data = await createContest(body, c.get("userId"), true);
+            setAuditBody(c, { input: body, result: data });
+            return c.json({ data }, 201);
+        },
+    ),
 );
 
 /**
@@ -176,50 +176,50 @@ router.post(
  * 权限：管理员。path：id。body：UpdateContestInput。响应：{ data }。
  */
 router.put(
-  "/contests/:id",
-  adminVersionMiddleware(async (c) => {
-    const id = await resolveDefaultContestAccess(
-      c.req.param("id") as string,
-      c.var.userId,
-    );
-    return (await getContest(id)).updated_at;
-  }),
-  auditRoute(
-    {
-      action: "contest.update",
-      target: (c) => {
-        const body = getAuditBody<{ contestId?: string }>(c);
-        return body?.contestId
-          ? { type: "contest", id: body.contestId }
-          : undefined;
-      },
-      buildDetail: (c) => {
-        const body = getAuditBody<
-          { contestId?: string; input?: UpdateContestInput }
-        >(c);
-        return {
-          action: "contest.update",
-          contest_id: body?.contestId ?? "",
-          title: body?.input?.title,
-          type: body?.input?.type,
-        };
-      },
-    },
-    async (c) => {
-      const contestId = await resolveDefaultContestAccess(
-        c.req.param("id") as string,
-        c.var.userId,
-      );
-      const body = await parseJsonBody<UpdateContestInput>(c);
-      setAuditBody(c, { input: body, contestId });
-      const data = await updateContest(
-        contestId,
-        body,
-        true,
-      );
-      return c.json({ data });
-    },
-  ),
+    "/contests/:id",
+    adminVersionMiddleware(async (c) => {
+        const id = await resolveDefaultContestAccess(
+            c.req.param("id") as string,
+            c.var.userId,
+        );
+        return (await getContest(id)).updated_at;
+    }),
+    auditRoute(
+        {
+            action: "contest.update",
+            target: (c) => {
+                const body = getAuditBody<{ contestId?: string }>(c);
+                return body?.contestId
+                    ? { type: "contest", id: body.contestId }
+                    : undefined;
+            },
+            buildDetail: (c) => {
+                const body = getAuditBody<
+                    { contestId?: string; input?: UpdateContestInput }
+                >(c);
+                return {
+                    action: "contest.update",
+                    contest_id: body?.contestId ?? "",
+                    title: body?.input?.title,
+                    type: body?.input?.type,
+                };
+            },
+        },
+        async (c) => {
+            const contestId = await resolveDefaultContestAccess(
+                c.req.param("id") as string,
+                c.var.userId,
+            );
+            const body = await parseJsonBody<UpdateContestInput>(c);
+            setAuditBody(c, { input: body, contestId });
+            const data = await updateContest(
+                contestId,
+                body,
+                true,
+            );
+            return c.json({ data });
+        },
+    ),
 );
 
 /**
@@ -227,41 +227,41 @@ router.put(
  * 权限：管理员。path：id。响应：204 无内容。
  */
 router.delete(
-  "/contests/:id",
-  adminVersionMiddleware(async (c) => {
-    const id = await resolveDefaultContestAccess(
-      c.req.param("id") as string,
-      c.var.userId,
-    );
-    return (await getContest(id)).updated_at;
-  }),
-  auditRoute(
-    {
-      action: "contest.delete",
-      target: (c) => {
-        const body = getAuditBody<{ contestId?: string }>(c);
-        return body?.contestId
-          ? { type: "contest", id: body.contestId }
-          : undefined;
-      },
-      buildDetail: (c) => {
-        const body = getAuditBody<{ contestId?: string }>(c);
-        return {
-          action: "contest.delete",
-          contest_id: body?.contestId ?? "",
-        };
-      },
-    },
-    async (c) => {
-      const contestId = await resolveDefaultContestAccess(
-        c.req.param("id") as string,
-        c.var.userId,
-      );
-      setAuditBody(c, { contestId });
-      await deleteContest(contestId);
-      return c.body(null, 204);
-    },
-  ),
+    "/contests/:id",
+    adminVersionMiddleware(async (c) => {
+        const id = await resolveDefaultContestAccess(
+            c.req.param("id") as string,
+            c.var.userId,
+        );
+        return (await getContest(id)).updated_at;
+    }),
+    auditRoute(
+        {
+            action: "contest.delete",
+            target: (c) => {
+                const body = getAuditBody<{ contestId?: string }>(c);
+                return body?.contestId
+                    ? { type: "contest", id: body.contestId }
+                    : undefined;
+            },
+            buildDetail: (c) => {
+                const body = getAuditBody<{ contestId?: string }>(c);
+                return {
+                    action: "contest.delete",
+                    contest_id: body?.contestId ?? "",
+                };
+            },
+        },
+        async (c) => {
+            const contestId = await resolveDefaultContestAccess(
+                c.req.param("id") as string,
+                c.var.userId,
+            );
+            setAuditBody(c, { contestId });
+            await deleteContest(contestId);
+            return c.body(null, 204);
+        },
+    ),
 );
 
 /**
@@ -269,12 +269,12 @@ router.delete(
  * 权限：管理员。path：id。响应：{ data }。
  */
 router.get("/contests/:id/participants", async (c) => {
-  const contestId = await resolveDefaultContestAccess(
-    c.req.param("id") as string,
-    c.var.userId,
-  );
-  const data = await listParticipants(contestId);
-  return c.json({ data });
+    const contestId = await resolveDefaultContestAccess(
+        c.req.param("id") as string,
+        c.var.userId,
+    );
+    const data = await listParticipants(contestId);
+    return c.json({ data });
 });
 
 /**
@@ -282,44 +282,46 @@ router.get("/contests/:id/participants", async (c) => {
  * 权限：管理员。path：id。body：用户 ID 数组。响应：201 { data: { added } }。
  */
 router.post(
-  "/contests/:id/participants",
-  auditRoute(
-    {
-      action: "contest.participants_add",
-      target: (c) => {
-        const body = getAuditBody<{ contestId?: string }>(c);
-        return body?.contestId
-          ? { type: "contest", id: body.contestId }
-          : undefined;
-      },
-      buildDetail: (c) => {
-        const body = getAuditBody<{ contestId?: string; user_ids?: string[] }>(
-          c,
-        );
-        return {
-          action: "contest.participants_add",
-          contest_id: body?.contestId ?? "",
-          user_ids: body?.user_ids ?? [],
-        };
-      },
-    },
-    async (c) => {
-      const contestId = await resolveDefaultContestAccess(
-        c.req.param("id") as string,
-        c.var.userId,
-      );
-      const userIds = await parseJsonBody<string[]>(c);
-      if (!Array.isArray(userIds)) {
-        throw new BadRequestError("请求体必须为用户 ID 数组");
-      }
-      const resolvedIds = await Promise.all(
-        userIds.map((v) => resolveUserId(v)),
-      );
-      setAuditBody(c, { contestId, user_ids: resolvedIds });
-      const added = await addParticipants(contestId, resolvedIds);
-      return c.json({ data: { added } }, 201);
-    },
-  ),
+    "/contests/:id/participants",
+    auditRoute(
+        {
+            action: "contest.participants_add",
+            target: (c) => {
+                const body = getAuditBody<{ contestId?: string }>(c);
+                return body?.contestId
+                    ? { type: "contest", id: body.contestId }
+                    : undefined;
+            },
+            buildDetail: (c) => {
+                const body = getAuditBody<
+                    { contestId?: string; user_ids?: string[] }
+                >(
+                    c,
+                );
+                return {
+                    action: "contest.participants_add",
+                    contest_id: body?.contestId ?? "",
+                    user_ids: body?.user_ids ?? [],
+                };
+            },
+        },
+        async (c) => {
+            const contestId = await resolveDefaultContestAccess(
+                c.req.param("id") as string,
+                c.var.userId,
+            );
+            const userIds = await parseJsonBody<string[]>(c);
+            if (!Array.isArray(userIds)) {
+                throw new BadRequestError("请求体必须为用户 ID 数组");
+            }
+            const resolvedIds = await Promise.all(
+                userIds.map((v) => resolveUserId(v)),
+            );
+            setAuditBody(c, { contestId, user_ids: resolvedIds });
+            const added = await addParticipants(contestId, resolvedIds);
+            return c.json({ data: { added } }, 201);
+        },
+    ),
 );
 
 /**
@@ -327,39 +329,43 @@ router.post(
  * 权限：管理员。path：id、userId。响应：204 无内容。
  */
 router.delete(
-  "/contests/:id/participants/:userId",
-  auditRoute(
-    {
-      action: "contest.participants_remove",
-      target: (c) => {
-        const body = getAuditBody<{ contestId?: string }>(c);
-        return body?.contestId
-          ? { type: "contest", id: body.contestId }
-          : undefined;
-      },
-      buildDetail: (c) => {
-        const body = getAuditBody<{ contestId?: string; userId?: string }>(c);
-        return {
-          action: "contest.participants_remove",
-          contest_id: body?.contestId ?? "",
-          user_id: body?.userId ?? "",
-        };
-      },
-    },
-    async (c) => {
-      const contestId = await resolveDefaultContestAccess(
-        c.req.param("id") as string,
-        c.var.userId,
-      );
-      const targetUserId = await resolveUserId(c.req.param("userId") as string);
-      setAuditBody(c, { contestId, userId: targetUserId });
-      await removeParticipant(
-        contestId,
-        targetUserId,
-      );
-      return c.body(null, 204);
-    },
-  ),
+    "/contests/:id/participants/:userId",
+    auditRoute(
+        {
+            action: "contest.participants_remove",
+            target: (c) => {
+                const body = getAuditBody<{ contestId?: string }>(c);
+                return body?.contestId
+                    ? { type: "contest", id: body.contestId }
+                    : undefined;
+            },
+            buildDetail: (c) => {
+                const body = getAuditBody<
+                    { contestId?: string; userId?: string }
+                >(c);
+                return {
+                    action: "contest.participants_remove",
+                    contest_id: body?.contestId ?? "",
+                    user_id: body?.userId ?? "",
+                };
+            },
+        },
+        async (c) => {
+            const contestId = await resolveDefaultContestAccess(
+                c.req.param("id") as string,
+                c.var.userId,
+            );
+            const targetUserId = await resolveUserId(
+                c.req.param("userId") as string,
+            );
+            setAuditBody(c, { contestId, userId: targetUserId });
+            await removeParticipant(
+                contestId,
+                targetUserId,
+            );
+            return c.body(null, 204);
+        },
+    ),
 );
 
 /**
@@ -367,23 +373,23 @@ router.delete(
  * 权限：管理员。path：id。query：page、perPage。响应：{ data, pagination }。
  */
 router.get("/contests/:id/submissions", async (c) => {
-  const contestId = await resolveDefaultContestAccess(
-    c.req.param("id") as string,
-    c.var.userId,
-  );
-  await getContest(contestId);
-  const { page, perPage } = parsePagination(c);
-  const result = await listSubmissions({
-    contestId,
-    page,
-    perPage,
-    // 管理端比赛视图：需要随时查看全部提交在途状态（队列位置），供运维排障。
-    platformAdmin: "live_status",
-  });
-  return c.json({
-    data: result.data,
-    pagination: buildPaginationMeta(page, perPage, result.total),
-  });
+    const contestId = await resolveDefaultContestAccess(
+        c.req.param("id") as string,
+        c.var.userId,
+    );
+    await getContest(contestId);
+    const { page, perPage } = parsePagination(c);
+    const result = await listSubmissions({
+        contestId,
+        page,
+        perPage,
+        // 管理端比赛视图：需要随时查看全部提交在途状态（队列位置），供运维排障。
+        platformAdmin: "live_status",
+    });
+    return c.json({
+        data: result.data,
+        pagination: buildPaginationMeta(page, perPage, result.total),
+    });
 });
 
 /**
@@ -399,124 +405,129 @@ router.get("/contests/:id/submissions", async (c) => {
  * 结果是供人工复核的线索，不代表作弊结论。
  */
 router.get("/contests/:id/anti-cheat/similar-submissions", async (c) => {
-  await assertPermission(c, "contest:anti_cheat_read");
-  const contestId = await resolveDefaultContestAccess(
-    c.req.param("id") as string,
-    c.var.userId,
-  );
-  const threshold = parseSimilarityThreshold(c.req.query("threshold"));
-  const limit = parseSimilarityLimit(c.req.query("limit"));
-  const problemRef = c.req.query("problem_id")?.trim();
-  const problemId = problemRef
-    ? await resolveProblemIdOrThrow(problemRef)
-    : undefined;
-  const result = await findSimilarSubmissions(contestId, {
-    threshold,
-    limit,
-    problemId,
-  });
-  return c.json({
-    data: result.data,
-    meta: {
-      threshold: result.threshold,
-      limit: result.limit,
-      total: result.total,
-      truncated: result.truncated,
-      candidates: result.candidates,
-      // 评审补充：区分「取了多少候选」与「真正比较了多少」——
-      // 只看 candidates 会在候选含大量过短提交时高估分析覆盖率。
-      participating: result.participating,
-      skipped: result.skipped,
-      buckets: result.buckets,
-      max_submissions: result.max_submissions,
-    },
-    data_policy: {
-      // 与 noj-ui/composables/useContests.ts 声明的 `retention_days` 必需字段
-      // 保持同一形状（评审指出此处曾多出 source、少了 retention_days）。
-      // 注：同文件的 ip-groups / timeline 端点已随 IP 反作弊机制下线（审计 VULN-06）。
-      purpose: "竞赛期间代码相似度人工复核",
-      retention_days: 180,
-      automated_penalty: false,
-    },
-  });
+    await assertPermission(c, "contest:anti_cheat_read");
+    const contestId = await resolveDefaultContestAccess(
+        c.req.param("id") as string,
+        c.var.userId,
+    );
+    const threshold = parseSimilarityThreshold(c.req.query("threshold"));
+    const limit = parseSimilarityLimit(c.req.query("limit"));
+    const problemRef = c.req.query("problem_id")?.trim();
+    const problemId = problemRef
+        ? await resolveProblemIdOrThrow(problemRef)
+        : undefined;
+    const result = await findSimilarSubmissions(contestId, {
+        threshold,
+        limit,
+        problemId,
+    });
+    return c.json({
+        data: result.data,
+        meta: {
+            threshold: result.threshold,
+            limit: result.limit,
+            total: result.total,
+            truncated: result.truncated,
+            candidates: result.candidates,
+            // 评审补充：区分「取了多少候选」与「真正比较了多少」——
+            // 只看 candidates 会在候选含大量过短提交时高估分析覆盖率。
+            participating: result.participating,
+            skipped: result.skipped,
+            buckets: result.buckets,
+            max_submissions: result.max_submissions,
+        },
+        data_policy: {
+            // 与 noj-ui/composables/useContests.ts 声明的 `retention_days` 必需字段
+            // 保持同一形状（评审指出此处曾多出 source、少了 retention_days）。
+            // 注：同文件的 ip-groups / timeline 端点已随 IP 反作弊机制下线（审计 VULN-06）。
+            purpose: "竞赛期间代码相似度人工复核",
+            retention_days: 180,
+            automated_penalty: false,
+        },
+    });
 });
 
 /** 解析 `threshold` 查询参数：缺省时返回 undefined，由服务层套用默认阈值。 */
 function parseSimilarityThreshold(raw: string | undefined): number | undefined {
-  const text = raw?.trim();
-  if (!text) return undefined;
-  const value = Number(text);
-  if (!Number.isFinite(value) || value <= 0 || value > 1) {
-    throw new BadRequestError("threshold 必须为大于 0 且不超过 1 的小数");
-  }
-  return value;
+    const text = raw?.trim();
+    if (!text) return undefined;
+    const value = Number(text);
+    if (!Number.isFinite(value) || value <= 0 || value > 1) {
+        throw new BadRequestError("threshold 必须为大于 0 且不超过 1 的小数");
+    }
+    return value;
 }
 
 /** 解析 `limit` 查询参数：缺省时返回 undefined，由服务层套用默认上限。 */
 function parseSimilarityLimit(raw: string | undefined): number | undefined {
-  const text = raw?.trim();
-  if (!text) return undefined;
-  const value = Number(text);
-  if (!Number.isInteger(value) || value < 1 || value > MAX_SIMILAR_PAIR_LIMIT) {
-    throw new BadRequestError(
-      `limit 必须为 1 到 ${MAX_SIMILAR_PAIR_LIMIT} 之间的整数`,
-    );
-  }
-  return value;
+    const text = raw?.trim();
+    if (!text) return undefined;
+    const value = Number(text);
+    if (
+        !Number.isInteger(value) || value < 1 || value > MAX_SIMILAR_PAIR_LIMIT
+    ) {
+        throw new BadRequestError(
+            `limit 必须为 1 到 ${MAX_SIMILAR_PAIR_LIMIT} 之间的整数`,
+        );
+    }
+    return value;
 }
 
 /** 查看正式成绩发布门禁及待处理/失败评测明细。 */
 router.get("/contests/:id/ranking-snapshots/readiness", async (c) => {
-  const contestId = await resolveDefaultContestAccess(
-    c.req.param("id") as string,
-    c.var.userId,
-  );
-  const data = await getContestSettlementStatus(contestId);
-  return c.json({ data });
+    const contestId = await resolveDefaultContestAccess(
+        c.req.param("id") as string,
+        c.var.userId,
+    );
+    const data = await getContestSettlementStatus(contestId);
+    return c.json({ data });
 });
 
 /** 发布不可变的正式成绩快照；重复请求会生成新版本并保留审计说明。 */
 router.post("/contests/:id/ranking-snapshots", async (c) => {
-  const contestId = await resolveDefaultContestAccess(
-    c.req.param("id") as string,
-    c.var.userId,
-  );
-  const rawBody = await c.req.text();
-  let body: { note?: string; allow_failed?: boolean } = {};
-  if (rawBody.trim()) {
-    try {
-      body = JSON.parse(rawBody) as { note?: string; allow_failed?: boolean };
-    } catch {
-      throw new BadRequestError("请求体格式错误：需要有效的 JSON");
+    const contestId = await resolveDefaultContestAccess(
+        c.req.param("id") as string,
+        c.var.userId,
+    );
+    const rawBody = await c.req.text();
+    let body: { note?: string; allow_failed?: boolean } = {};
+    if (rawBody.trim()) {
+        try {
+            body = JSON.parse(rawBody) as {
+                note?: string;
+                allow_failed?: boolean;
+            };
+        } catch {
+            throw new BadRequestError("请求体格式错误：需要有效的 JSON");
+        }
     }
-  }
-  const data = await publishContestRankingSnapshot(
-    contestId,
-    c.get("userId"),
-    body.note ?? "",
-    { allowFailed: body.allow_failed === true },
-  );
-  return c.json({ data }, 201);
+    const data = await publishContestRankingSnapshot(
+        contestId,
+        c.get("userId"),
+        body.note ?? "",
+        { allowFailed: body.allow_failed === true },
+    );
+    return c.json({ data }, 201);
 });
 
 /** 获取当前正式成绩快照；实时排名接口仍用于临时成绩。 */
 router.get("/contests/:id/ranking-snapshots/latest", async (c) => {
-  const contestId = await resolveDefaultContestAccess(
-    c.req.param("id") as string,
-    c.var.userId,
-  );
-  const data = await getLatestContestRankingSnapshot(contestId);
-  return c.json({ data });
+    const contestId = await resolveDefaultContestAccess(
+        c.req.param("id") as string,
+        c.var.userId,
+    );
+    const data = await getLatestContestRankingSnapshot(contestId);
+    return c.json({ data });
 });
 
 /** 获取正式成绩历史版本元数据；rows 只在具体版本导出时返回。 */
 router.get("/contests/:id/ranking-snapshots", async (c) => {
-  const contestId = await resolveDefaultContestAccess(
-    c.req.param("id") as string,
-    c.var.userId,
-  );
-  const data = await listContestRankingSnapshots(contestId);
-  return c.json({ data });
+    const contestId = await resolveDefaultContestAccess(
+        c.req.param("id") as string,
+        c.var.userId,
+    );
+    const data = await listContestRankingSnapshots(contestId);
+    return c.json({ data });
 });
 
 /**
@@ -529,36 +540,38 @@ router.get("/contests/:id/ranking-snapshots", async (c) => {
  * 展示分数（`scoreFromDb`），使 JSON 与 CSV、以及页面榜单三者一致。
  */
 function buildRankingSnapshotJson(
-  contestId: string,
-  snapshot: {
-    version: number;
-    note: string;
-    created_by: string | null;
-    created_at: string;
-    rows: unknown;
-  },
-) {
-  const rows = Array.isArray(snapshot.rows)
-    ? (snapshot.rows as KaggleRankingRow[]).map((row) => ({
-      ...row,
-      total_score: scoreFromDb(row.total_score),
-      problem_scores: (row.problem_scores ?? []).map((s) => ({
-        ...s,
-        best_score: s.best_score === null ? null : scoreFromDb(s.best_score),
-      })),
-    }))
-    : snapshot.rows;
-  return {
-    data: {
-      contest_id: contestId,
-      version: snapshot.version,
-      note: snapshot.note,
-      created_by: snapshot.created_by,
-      created_at: snapshot.created_at,
-      // 分数已换算为展示量纲（÷100）；rank/attempts 等计数值原样。
-      rows,
+    contestId: string,
+    snapshot: {
+        version: number;
+        note: string;
+        created_by: string | null;
+        created_at: string;
+        rows: unknown;
     },
-  };
+) {
+    const rows = Array.isArray(snapshot.rows)
+        ? (snapshot.rows as KaggleRankingRow[]).map((row) => ({
+            ...row,
+            total_score: scoreFromDb(row.total_score),
+            problem_scores: (row.problem_scores ?? []).map((s) => ({
+                ...s,
+                best_score: s.best_score === null
+                    ? null
+                    : scoreFromDb(s.best_score),
+            })),
+        }))
+        : snapshot.rows;
+    return {
+        data: {
+            contest_id: contestId,
+            version: snapshot.version,
+            note: snapshot.note,
+            created_by: snapshot.created_by,
+            created_at: snapshot.created_at,
+            // 分数已换算为展示量纲（÷100）；rank/attempts 等计数值原样。
+            rows,
+        },
+    };
 }
 
 /**
@@ -578,55 +591,57 @@ function buildRankingSnapshotJson(
  * 防止导出文件在 Excel 中被当作公式执行（CSV 注入）。
  */
 function* buildRankingCsv(snapshot: {
-  version: number;
-  rows: unknown;
+    version: number;
+    rows: unknown;
 }): Generator<string> {
-  const rows = (snapshot.rows ?? []) as KaggleRankingRow[];
-  const header = [
-    "版本",
-    "排名",
-    "用户",
-    "总分",
-    "最后提交时间",
-    "题目标签",
-    "题目最好成绩",
-    "题目提交次数",
-    "该题最后得分时间",
-  ];
-  // 逐行 yield：配合 csvResponse 的流式写出，峰值内存与总行数无关。
-  yield header.join(",") + "\n";
-  for (const row of rows) {
-    const scores = row.problem_scores ?? [];
-    if (scores.length === 0) {
-      // 无题目明细时仍输出一行，避免该用户整行消失（总分本身是有效信息）
-      yield [
-        snapshot.version,
-        row.rank,
-        row.username,
-        scoreFromDb(row.total_score),
-        row.last_submission_at ?? "",
-        "",
-        "",
-        "",
-        "",
-      ].map(csvCell).join(",") + "\n";
-      continue;
+    const rows = (snapshot.rows ?? []) as KaggleRankingRow[];
+    const header = [
+        "版本",
+        "排名",
+        "用户",
+        "总分",
+        "最后提交时间",
+        "题目标签",
+        "题目最好成绩",
+        "题目提交次数",
+        "该题最后得分时间",
+    ];
+    // 逐行 yield：配合 csvResponse 的流式写出，峰值内存与总行数无关。
+    yield header.join(",") + "\n";
+    for (const row of rows) {
+        const scores = row.problem_scores ?? [];
+        if (scores.length === 0) {
+            // 无题目明细时仍输出一行，避免该用户整行消失（总分本身是有效信息）
+            yield [
+                snapshot.version,
+                row.rank,
+                row.username,
+                scoreFromDb(row.total_score),
+                row.last_submission_at ?? "",
+                "",
+                "",
+                "",
+                "",
+            ].map(csvCell).join(",") + "\n";
+            continue;
+        }
+        // 每人每题一行：便于在表格软件中直接按题目透视，而不是把明细塞进一个 JSON 单元格
+        for (const score of scores) {
+            yield [
+                snapshot.version,
+                row.rank,
+                row.username,
+                scoreFromDb(row.total_score),
+                row.last_submission_at ?? "",
+                score.label,
+                score.best_score === null
+                    ? "待处理"
+                    : scoreFromDb(score.best_score),
+                score.attempts,
+                score.last_best_at ?? "",
+            ].map(csvCell).join(",") + "\n";
+        }
     }
-    // 每人每题一行：便于在表格软件中直接按题目透视，而不是把明细塞进一个 JSON 单元格
-    for (const score of scores) {
-      yield [
-        snapshot.version,
-        row.rank,
-        row.username,
-        scoreFromDb(row.total_score),
-        row.last_submission_at ?? "",
-        score.label,
-        score.best_score === null ? "待处理" : scoreFromDb(score.best_score),
-        score.attempts,
-        score.last_best_at ?? "",
-      ].map(csvCell).join(",") + "\n";
-    }
-  }
 }
 
 /**
@@ -636,55 +651,55 @@ function* buildRankingCsv(snapshot: {
  * @returns 快照，或 404 Response
  */
 async function loadRankingSnapshotOr404(
-  contestId: string,
-  version?: number,
+    contestId: string,
+    version?: number,
 ): Promise<
-  | {
-    snapshot: NonNullable<
-      Awaited<ReturnType<typeof getLatestContestRankingSnapshot>>
-    >;
-  }
-  | { response: Response }
+    | {
+        snapshot: NonNullable<
+            Awaited<ReturnType<typeof getLatestContestRankingSnapshot>>
+        >;
+    }
+    | { response: Response }
 > {
-  const snapshot = version === undefined
-    ? await getLatestContestRankingSnapshot(contestId)
-    : await getContestRankingSnapshotByVersion(contestId, version);
-  if (!snapshot) {
-    return {
-      response: version === undefined
-        ? Response.json({ error: "尚未发布正式成绩" }, { status: 404 })
-        : Response.json(
-          { error: `正式成绩第 ${version} 版不存在` },
-          { status: 404 },
-        ),
-    };
-  }
-  return { snapshot };
+    const snapshot = version === undefined
+        ? await getLatestContestRankingSnapshot(contestId)
+        : await getContestRankingSnapshotByVersion(contestId, version);
+    if (!snapshot) {
+        return {
+            response: version === undefined
+                ? Response.json({ error: "尚未发布正式成绩" }, { status: 404 })
+                : Response.json(
+                    { error: `正式成绩第 ${version} 版不存在` },
+                    { status: 404 },
+                ),
+        };
+    }
+    return { snapshot };
 }
 
 /** 导出最新正式成绩 JSON，供 CSV 之外的核对与归档使用。 */
 router.get("/contests/:id/ranking-snapshots/latest.json", async (c) => {
-  const contestId = await resolveDefaultContestAccess(
-    c.req.param("id") as string,
-    c.var.userId,
-  );
-  const loaded = await loadRankingSnapshotOr404(contestId);
-  if ("response" in loaded) return loaded.response;
-  return c.json(buildRankingSnapshotJson(contestId, loaded.snapshot));
+    const contestId = await resolveDefaultContestAccess(
+        c.req.param("id") as string,
+        c.var.userId,
+    );
+    const loaded = await loadRankingSnapshotOr404(contestId);
+    if ("response" in loaded) return loaded.response;
+    return c.json(buildRankingSnapshotJson(contestId, loaded.snapshot));
 });
 
 /** 导出正式成绩 CSV（最新版）。 */
 router.get("/contests/:id/ranking-snapshots/latest.csv", async (c) => {
-  const contestId = await resolveDefaultContestAccess(
-    c.req.param("id") as string,
-    c.var.userId,
-  );
-  const loaded = await loadRankingSnapshotOr404(contestId);
-  if ("response" in loaded) return loaded.response;
-  return csvResponse(
-    buildRankingCsv(loaded.snapshot),
-    `contest-${contestId}-ranking-v${loaded.snapshot.version}.csv`,
-  );
+    const contestId = await resolveDefaultContestAccess(
+        c.req.param("id") as string,
+        c.var.userId,
+    );
+    const loaded = await loadRankingSnapshotOr404(contestId);
+    if ("response" in loaded) return loaded.response;
+    return csvResponse(
+        buildRankingCsv(loaded.snapshot),
+        `contest-${contestId}-ranking-v${loaded.snapshot.version}.csv`,
+    );
 });
 
 /**
@@ -702,20 +717,20 @@ router.get("/contests/:id/ranking-snapshots/latest.csv", async (c) => {
  *   `latest.csv`）**之后**，否则 `:file` 会抢先匹配 `readiness` 等静态段。
  */
 router.get("/contests/:id/ranking-snapshots/:file", async (c) => {
-  const contestId = await resolveDefaultContestAccess(
-    c.req.param("id") as string,
-    c.var.userId,
-  );
-  const { version, format } = parseSnapshotFile(c.req.param("file"));
-  const loaded = await loadRankingSnapshotOr404(contestId, version);
-  if ("response" in loaded) return loaded.response;
-  if (format === "json") {
-    return c.json(buildRankingSnapshotJson(contestId, loaded.snapshot));
-  }
-  return csvResponse(
-    buildRankingCsv(loaded.snapshot),
-    `contest-${contestId}-ranking-v${loaded.snapshot.version}.csv`,
-  );
+    const contestId = await resolveDefaultContestAccess(
+        c.req.param("id") as string,
+        c.var.userId,
+    );
+    const { version, format } = parseSnapshotFile(c.req.param("file"));
+    const loaded = await loadRankingSnapshotOr404(contestId, version);
+    if ("response" in loaded) return loaded.response;
+    if (format === "json") {
+        return c.json(buildRankingSnapshotJson(contestId, loaded.snapshot));
+    }
+    return csvResponse(
+        buildRankingCsv(loaded.snapshot),
+        `contest-${contestId}-ranking-v${loaded.snapshot.version}.csv`,
+    );
 });
 
 /**
@@ -725,24 +740,24 @@ router.get("/contests/:id/ranking-snapshots/:file", async (c) => {
  * **不做「不匹配就回退到最新版」**——静默回退会让运营误以为导出的是历史版本。
  */
 function parseSnapshotFile(file: string | undefined): {
-  version: number;
-  format: "json" | "csv";
+    version: number;
+    format: "json" | "csv";
 } {
-  const matched = /^(\d+)\.(json|csv)$/.exec(file ?? "");
-  if (!matched) {
-    throw new BadRequestError(
-      "导出路径必须形如 <版本号>.json 或 <版本号>.csv（版本号为不小于 1 的整数）",
-      "VALIDATION_ERROR",
-    );
-  }
-  const version = Number(matched[1]);
-  if (!Number.isInteger(version) || version < 1) {
-    throw new BadRequestError(
-      "版本号必须是不小于 1 的整数",
-      "VALIDATION_ERROR",
-    );
-  }
-  return { version, format: matched[2] as "json" | "csv" };
+    const matched = /^(\d+)\.(json|csv)$/.exec(file ?? "");
+    if (!matched) {
+        throw new BadRequestError(
+            "导出路径必须形如 <版本号>.json 或 <版本号>.csv（版本号为不小于 1 的整数）",
+            "VALIDATION_ERROR",
+        );
+    }
+    const version = Number(matched[1]);
+    if (!Number.isInteger(version) || version < 1) {
+        throw new BadRequestError(
+            "版本号必须是不小于 1 的整数",
+            "VALIDATION_ERROR",
+        );
+    }
+    return { version, format: matched[2] as "json" | "csv" };
 }
 
 /**
@@ -756,28 +771,28 @@ function parseSnapshotFile(file: string | undefined): {
  * 缓存策略：响应含全员成绩（个人数据），且随重测/新版本变化，明确禁止任何缓存。
  */
 function csvResponse(
-  chunkIter: Iterable<string>,
-  filename: string,
+    chunkIter: Iterable<string>,
+    filename: string,
 ): Response {
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      // BOM 必须先于任何内容，否则 Excel 会把中文识别成乱码
-      controller.enqueue(encoder.encode("\uFEFF"));
-      for (const chunk of chunkIter) {
-        controller.enqueue(encoder.encode(chunk));
-      }
-      controller.close();
-    },
-  });
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-      // 全员成绩属个人数据且随时可变，禁止浏览器/代理缓存
-      "Cache-Control": "private, no-store",
-    },
-  });
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+            // BOM 必须先于任何内容，否则 Excel 会把中文识别成乱码
+            controller.enqueue(encoder.encode("\uFEFF"));
+            for (const chunk of chunkIter) {
+                controller.enqueue(encoder.encode(chunk));
+            }
+            controller.close();
+        },
+    });
+    return new Response(stream, {
+        headers: {
+            "Content-Type": "text/csv; charset=utf-8",
+            "Content-Disposition": `attachment; filename="${filename}"`,
+            // 全员成绩属个人数据且随时可变，禁止浏览器/代理缓存
+            "Cache-Control": "private, no-store",
+        },
+    });
 }
 
 /**
@@ -793,11 +808,11 @@ function csvResponse(
  * 数值不参与前缀判定：`-0`、`-1` 这类负数是合法数据，不该被加上 `'`。
  */
 function csvCell(value: unknown): string {
-  if (typeof value === "number") return String(value);
-  let text = String(value ?? "");
-  // 前导空白也可能被表格软件忽略后仍按公式解析，故按「去掉前导空白后的首字符」判定
-  if (/^[\s]*[=+\-@\t\r]/.test(text)) text = `'${text}`;
-  return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+    if (typeof value === "number") return String(value);
+    let text = String(value ?? "");
+    // 前导空白也可能被表格软件忽略后仍按公式解析，故按「去掉前导空白后的首字符」判定
+    if (/^[\s]*[=+\-@\t\r]/.test(text)) text = `'${text}`;
+    return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
 export default router;
