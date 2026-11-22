@@ -245,13 +245,13 @@ async function runInitSystem(): Promise<void> {
 
 /** 管理员引导：ADMIN_EMAIL/ADMIN_PASS（env 或 CLI 参数）+ 兜底。 */
 async function runBootstrapAdmin(
-  opts: { email?: string; password?: string },
+  opts: { email?: string; password?: string; credentialsFile?: string },
 ): Promise<void> {
   if (opts.email) Deno.env.set("ADMIN_EMAIL", opts.email);
   if (opts.password) Deno.env.set("ADMIN_PASS", opts.password);
   console.log("检查管理员...");
   await ensureAdminFromEnv();
-  await ensureBootstrapAdmin();
+  await ensureBootstrapAdmin({ credentialsFile: opts.credentialsFile });
   await ensureDefaultWorkspace(createSystemActor("bootstrap"));
 }
 
@@ -393,9 +393,19 @@ const bootstrapCmd = new Command()
   .command("admin", "维护/开发用管理员引导（可提升已有用户，不用于首次初始化）")
   .option("--email <email:string>", "管理员邮箱")
   .option("--password <password:string>", "管理员密码")
-  .action((opts: { email?: string; password?: string }) => {
-    return runBootstrapAdmin(opts);
-  });
+  .option(
+    "--credentials-file <path:string>",
+    "一次性凭据落盘路径（默认启动目录 .data/bootstrap-admin.txt；只读根文件系统请指向挂载的可写目录）",
+  )
+  .action(
+    (opts: {
+      email?: string;
+      password?: string;
+      credentialsFile?: string;
+    }) => {
+      return runBootstrapAdmin(opts);
+    },
+  );
 
 const problemsCmd = new Command()
   .description("题目包操作")
